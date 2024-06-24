@@ -59,6 +59,15 @@ class UserController extends Controller
         Log::info('Update method called', ['request' => $request->all(), 'id' => $id]);
 
         try {
+            // Récupérer l'utilisateur connecté
+            $currentUser = $request->user();
+
+            // Vérifier si l'utilisateur connecté est celui qu'on essaie de modifier
+            if ($currentUser->id != $id) {
+                Log::warning('Unauthorized update attempt', ['user_id' => $currentUser->id, 'target_id' => $id]);
+                return response()->json(['error' => 'You are not authorized to update this user.'], 403);
+            }
+
             $user = User::findOrFail($id);
 
             Log::info('User found', ['user' => $user]);
@@ -95,7 +104,22 @@ class UserController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        Log::info('Destroy method called', ['id' => $id]);
+
+        try {
+            $user = User::findOrFail($id);
+            Log::info('User found', ['user' => $user]);
+
+            $user->delete();
+            Log::info('User deleted successfully');
+
+            return response()->json([
+                'message' => 'User deleted successfully'
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error deleting user', ['error' => $e->getMessage()]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function login(Request $request)
