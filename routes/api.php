@@ -15,3 +15,5 @@ Route::post('/login', [UserController::class, 'login']);
 Route::put('/users/{id}', [UserController::class, 'update'])->middleware('auth:sanctum');
 
 Route::delete('/users/{id}', [UserController::class, 'destroy'])->middleware('auth:sanctum');
+
+Route::post('/logout', [UserController::class, 'logout'])->middleware('auth:sanctum');

@@ -20,28 +20,33 @@ class UserController extends Controller
         //
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-        ]);
+/**
+ * Store a newly created resource in storage.
+ */
+public function store(Request $request)
+{
+    $validatedData = $request->validate([
+        'name' => 'required|string|max:255',
+        'firstname' => 'nullable|string|max:255',
+        'age' => 'nullable|integer|min:0|max:120',
+        'email' => 'required|string|email|max:255|unique:users',
+        'password' => 'required|string|min:8',
+    ]);
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+    $user = User::create([
+        'name' => $validatedData['name'],
+        'firstname' => $validatedData['firstname'],
+        'age' => $validatedData['age'],
+        'email' => $validatedData['email'],
+        'password' => Hash::make($validatedData['password']),
+    ]);
 
-        return response()->json([
-            'message' => 'User created successfully',
-            'user' => $user
-        ], 201);
-    }
+    return response()->json([
+        'message' => 'User created successfully',
+        'user' => $user
+    ], 201);
+}
+
 
     /**
      * Display the specified resource.
@@ -51,53 +56,58 @@ class UserController extends Controller
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        Log::info('Update method called', ['request' => $request->all(), 'id' => $id]);
 
-        try {
-            // Récupérer l'utilisateur connecté
-            $currentUser = $request->user();
+/**
+ * Update the specified resource in storage.
+ */
+public function update(Request $request, string $id)
+{
+    Log::info('Update method called', ['request' => $request->all(), 'id' => $id]);
 
-            // Vérifier si l'utilisateur connecté est celui qu'on essaie de modifier
-            if ($currentUser->id != $id) {
-                Log::warning('Unauthorized update attempt', ['user_id' => $currentUser->id, 'target_id' => $id]);
-                return response()->json(['error' => 'You are not authorized to update this user.'], 403);
-            }
+    try {
+        // Récupérer l'utilisateur connecté
+        $currentUser = $request->user();
 
-            $user = User::findOrFail($id);
-
-            Log::info('User found', ['user' => $user]);
-
-            $request->validate([
-                'name' => 'sometimes|string|max:255',
-                'email' => 'sometimes|string|email|max:255|unique:users,email,'.$user->id,
-                'password' => 'sometimes|string|min:8',
-            ]);
-
-            Log::info('Validation passed');
-
-            $data = $request->only(['name', 'email']);
-            if ($request->has('password')) {
-                $data['password'] = Hash::make($request->password);
-            }
-
-            $user->update($data);
-
-            Log::info('User updated', ['user' => $user]);
-
-            return response()->json([
-                'message' => 'User updated successfully',
-                'user' => $user
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error updating user', ['error' => $e->getMessage()]);
-            return response()->json(['error' => $e->getMessage()], 500);
+        // Vérifier si l'utilisateur connecté est celui qu'on essaie de modifier
+        if ($currentUser->id != $id) {
+            Log::warning('Unauthorized update attempt', ['user_id' => $currentUser->id, 'target_id' => $id]);
+            return response()->json(['error' => 'You are not authorized to update this user.'], 403);
         }
+
+        $user = User::findOrFail($id);
+
+        Log::info('User found', ['user' => $user]);
+
+        $validatedData = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'firstname' => 'sometimes|nullable|string|max:255',
+            'age' => 'sometimes|nullable|integer|min:0|max:120',
+            'email' => 'sometimes|string|email|max:255|unique:users,email,'.$user->id,
+            'password' => 'sometimes|string|min:8',
+        ]);
+
+        Log::info('Validation passed');
+
+        // Traiter le mot de passe séparément s'il est fourni
+        if (isset($validatedData['password'])) {
+            $validatedData['password'] = Hash::make($validatedData['password']);
+        }
+
+        // Mettre à jour l'utilisateur
+        $user->update($validatedData);
+
+        Log::info('User updated', ['user' => $user]);
+
+        return response()->json([
+            'message' => 'User updated successfully',
+            'user' => $user
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Error updating user', ['error' => $e->getMessage()]);
+        return response()->json(['error' => $e->getMessage()], 500);
     }
+}
+
 
     /**
      * Remove the specified resource from storage.
@@ -142,6 +152,16 @@ class UserController extends Controller
         return response()->json([
             'token' => $token,
             'user' => $user
+        ]);
+    }
+
+    public function logout(Request $request)
+    {
+        // Révoquer le token actuel...
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Successfully logged out'
         ]);
     }
 }
